@@ -1,0 +1,2 @@
+# 통신 transport만 외부 패키지. Python3.8/3.11 지원 API로 고정.
+websockets==13.1

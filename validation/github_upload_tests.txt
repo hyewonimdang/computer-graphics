@@ -1,0 +1,85 @@
+.............................................Saved /var/folders/nj/1ks5r7v549s1wf88ck0hklfh0000gn/T/tmpdfpkih1_/output/left.png, right.png, calibration.json; K/size/R/t unchanged
+Valid pixels: left=96.39%, right=96.39%
+Left features: 3294
+Right features: 3285
+Raw matches: 3294
+Filtered matches: 2097
+Essential matrix (raw):
+ [[ 0.  0.  0.]
+ [ 0.  0.  1.]
+ [ 0. -1.  0.]]
+Projection matrix left:
+ [[1. 0. 0. 0.]
+ [0. 1. 0. 0.]
+ [0. 0. 1. 0.]]
+Projection matrix right:
+ [[ 1.  0.  0. -1.]
+ [ 0.  1.  0.  0.]
+ [ 0.  0.  1.  0.]]
+Calibration baseline: 1.0 m; E pose mismatch: 0.0
+Triangulated points: 2
+Numerically valid: 1
+Numerically invalid (NaN rows): 1
+Phase 4 결과: 양의 깊이/재투영 오차 필터는 아직 적용하지 않았습니다.
+Invalid points removed: 1 | Reasons: {'numerical': 0, 'depth': 1, 'distance': 0, 'image_bounds': 0, 'reprojection': 0}
+Mean left reprojection error: 0.0 px
+Mean right reprojection error: 0.0 px
+Final valid 3D points: 2
+Exported XYZRGB: (2, 6); JSON / PLY / NumPy / CSV
+Invalid points removed: 3 | Reasons: {'numerical': 0, 'depth': 3, 'distance': 0, 'image_bounds': 0, 'reprojection': 0}
+Mean left reprojection error: None px
+Mean right reprojection error: None px
+Final valid 3D points: 0
+주의: 모든 점이 제거되었습니다. 보정값/이미지 순서/필터 한계를 확인하세요.
+Exported XYZRGB: (0, 6); JSON / PLY / NumPy / CSV
+Rectified; computing custom sgm matching...
+Confident dense correspondences: 1541; custom DLT...
+{
+  "surface_exported": true,
+  "surface_meters_per_unit": 1.0,
+  "mode": "custom_census_sgm",
+  "points": 1541,
+  "units": "m",
+  "baseline": 1.0,
+  "image_size": [
+    72,
+    32
+  ],
+  "coverage_fraction": 0.6688368055555556,
+  "parameters": {
+    "min_disparity": 1,
+    "max_disparity": 16,
+    "p1": 2.0,
+    "p2": 24.0,
+    "edge_scale": 10.0,
+    "uniqueness": 0.04,
+    "max_cost": 16.0,
+    "min_confidence": 0.35,
+    "lr_threshold": 1.0,
+    "min_depth": 1e-06,
+    "max_depth": 1000.0,
+    "max_distance": 1000.0,
+    "directions": 8,
+    "support": 2
+  },
+  "matching_before_support": 1680,
+  "matching_after_support": 1541,
+  "geometry_removal_counts": {
+    "numerical": 0,
+    "depth": 0,
+    "distance": 0,
+    "image_bounds": 0,
+    "reprojection": 0
+  },
+  "median_left_right_error_px": 0.08826017379760742,
+  "mean_left_reprojection_error_px": 9.750373779514511e-15,
+  "mean_right_reprojection_error_px": 9.199930920680072e-15,
+  "elapsed_seconds": 0.12448204215615988,
+  "caveat": "Reprojection is near zero by construction for rectified disparity. It is not independent evidence of correspondence correctness. No hole filling or point duplication.",
+  "confidence_note": "0..1 heuristic score, not calibrated probability; aligned with PLY/JSON rows in point_attributes.npz"
+}
+................
+----------------------------------------------------------------------
+Ran 61 tests in 0.855s
+
+OK

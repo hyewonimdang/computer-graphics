@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "stereo_surface_points": 73229,
+  "kitti_surface_points": 39983,
+  "unchanged_SRF1_decoder": true
+}

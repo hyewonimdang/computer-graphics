@@ -1,0 +1,44 @@
+{
+  "points": 73229,
+  "common_continuous_edges": 58587,
+  "real": {
+    "legacy": {
+      "valid": 39881,
+      "valid_percent": 54.46066449084379,
+      "seconds": 0.07448220811784267,
+      "common_edge_angle_median_deg": 30.492929445605707,
+      "common_edge_angle_p90_deg": 99.5126589897248
+    },
+    "robust": {
+      "valid": 54491,
+      "valid_percent": 74.41177675511068,
+      "seconds": 1.484508458059281,
+      "common_edge_angle_median_deg": 9.151849971185529,
+      "common_edge_angle_p90_deg": 39.26971003470363
+    }
+  },
+  "synthetic": {
+    "legacy": {
+      "valid": 4348,
+      "total": 4507,
+      "valid_percent": 96.47215442644774,
+      "angular_median_deg": 33.85721196933569,
+      "angular_p90_deg": 55.629337908135625,
+      "boundary_valid": 304,
+      "boundary_total": 330,
+      "boundary_angular_median_deg": 34.48499021509905
+    },
+    "robust": {
+      "valid": 4501,
+      "total": 4507,
+      "valid_percent": 99.86687375194143,
+      "angular_median_deg": 4.821680757320188,
+      "angular_p90_deg": 8.977095862828731,
+      "boundary_valid": 329,
+      "boundary_total": 330,
+      "boundary_angular_median_deg": 4.732478941193018
+    }
+  },
+  "note": "Real adjacent-normal angle is a noise/continuity proxy, not ground-truth accuracy; real geometry/point IDs are unchanged.",
+  "unchanged_point_cloud_sha256": "b8d9e319cf9a9eb4fb0810fc4d1973c42971da29e82805c6aaa6050de5b9400a"
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Synthetic demo only. X_right = R X_left + t; disparity = 600*0.4/Z.",
+  "K_left": [[600,0,450],[0,600,300],[0,0,1]],
+  "K_right": [[600,0,450],[0,600,300],[0,0,1]],
+  "R": [[1,0,0],[0,1,0],[0,0,1]],
+  "t": [-0.4,0,0],
+  "units": "synthetic_unit",
+  "image_size_left": [900,600],
+  "image_size_right": [900,600]
+}
