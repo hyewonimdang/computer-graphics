@@ -1,6 +1,6 @@
 # Computer Graphics — Stereo Reconstruction & Rendering
 
-스테레오 영상에서 복원한 점군을 웹에서 표면으로 그리고, 붓질과 페인트총으로 장면을 완성하는 컴퓨터 그래픽스 팀 프로젝트입니다.
+스테레오 영상에서 복원한 점군을 웹에서 표면으로 그립니다. 좌우 사진을 차례로 녹이면 사진에서 떨어져 나온 입자가 만나 조명 Splat으로 복원 표면을 보여 줍니다.
 
 ## 팀원별 코드 안내
 
@@ -8,10 +8,10 @@
 |---|---|---|
 | **A · 데이터 파이프라인** | [KITTI 실행](stereo_reconstruction/kitti_pipeline.py) · [SGM](stereo_reconstruction/sgm_stereo.py) · [표면 속성](stereo_reconstruction/surface_attributes.py) · [바이너리 규약](stereo_reconstruction/STREAM_PROTOCOL.md) | 영상에서 시차·XYZ·색·법선·반경 계산, 포즈 적용, 다운샘플링, 점 전송 |
 | **B · 렌더링 코어** | [splat 셰이더](renderer/splats.js) · [다중 패스·EDL](renderer/effects.js) · [반경 추정](renderer/spacing.js) | 점을 표면에 맞춰 그리기, 조명·광택, 입자 그림자, 깊이 경계 처리 |
-| **C · 연출과 화면** | [입자 발사 순서](renderer/paint.js) · [컨트롤 UI](renderer/index.html) · [재생·이벤트](renderer/viewer.js) | 붓질과 페인트총의 순서·속도, 타임라인·되감기, 시연 버튼 |
-| **B·C 공동** | [viewer.js](renderer/viewer.js) · [splats.js](renderer/splats.js) | viewer에서 B는 카메라·렌더 설정, C는 재생 시간과 모드 전환을 담당합니다. splats의 비행 궤적·착지 퍼짐은 C의 연출과 B의 GPU 표현이 만나는 부분입니다. |
+| **C · 연출과 화면** | [사진·입자 셰이더](renderer/stereo-transition.js) · [컨트롤 UI](renderer/index.html) · [재생·이벤트](renderer/viewer.js) | 좌우 사진 배치, 버튼 순서, Dissolve, 입자 융합과 표면 전환 |
+| **B·C 공동** | [viewer.js](renderer/viewer.js) · [splats.js](renderer/splats.js) | 뷰어는 완성 단계에서 카메라 조작과 후처리를 활성화하고, Splat 셰이더는 입자가 도착한 자리에 표면을 펼칩니다. |
 
-A가 저장한 한 프레임을 B가 [디코더](stereo_reconstruction/stream_client)로 읽습니다. C가 점별 착지 시각을 정하면 B의 셰이더가 현재 재생 시각에 맞춰 점의 위치와 재질을 그립니다. [팀원용 렌더러 실행 방법](renderer/README.md)
+A가 저장한 한 프레임을 B가 [디코더](stereo_reconstruction/stream_client)로 읽습니다. C는 정류 UV와 시차로 좌우 입자의 출발점을 배치하고, 같은 3D 점으로 모읍니다. [팀원용 렌더러 실행 방법](renderer/README.md)
 
 직접 구현한 부분은 Census/8방향 SGM, 삼각측량·재투영, voxel 선택, 경계 연결 탐색과 Huber IRLS 평면 법선입니다.
 NumPy를 행렬 연산에, OpenCV를 이미지 처리·ORB·카메라 보정 등에, websockets를 통신 transport에 사용합니다.

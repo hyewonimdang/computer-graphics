@@ -2,16 +2,51 @@
 <html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>스테레오 표면 렌더러</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#13191c;color:#ecf0ea;font:16px system-ui}main{max-width:1400px;margin:auto;padding:4vw}h1{font-size:clamp(24px,4vw,48px);margin:.4em 0}canvas{display:block;width:100%;background:#0b1014;touch-action:none}section{display:flex;flex-wrap:wrap;gap:.7em;align-items:center;margin:1em 0}button,select,input{font:inherit}button,select{padding:.45em;border-radius:5px}small{color:#a6beb7}
+*{box-sizing:border-box}body{margin:0;background:#13191c;color:#ecf0ea;font:16px system-ui}main{max-width:1400px;margin:auto;padding:clamp(12px,2.5vw,32px)}h1{font-size:clamp(24px,4vw,48px);margin:.25em 0}canvas{display:block;width:100%;margin-inline:auto;background:#0b1014;touch-action:none}section{display:flex;flex-wrap:wrap;gap:.7em;align-items:center;margin:1em 0}button,select,input{font:inherit}button,select{padding:.45em;border-radius:5px}small{color:#a6beb7}
 </style>
+<style>
+#left,#right{padding:.55em 1em;border-radius:999px;font-weight:650;color:#fff}
+#left{border:1px solid #6aa7ff;background:#2058ce}
+#right{border:1px solid #ff9cc8;background:#a62764}
+#left:disabled,#right:disabled{opacity:.48}
+</style>
+<link rel="stylesheet" href="./intro.css">
 <script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js"}}</script>
-<main><small>STEREO LAB / B</small><h1>스테레오 표면 렌더러</h1>
+<main id="intro">
+  <small class="sensor-tag">STEREO LAB / ROBOT VISION</small>
+  <h1>로봇의 눈으로</h1>
+  <p class="intro-copy">두 카메라가 같은 풍경을 포착합니다. 로봇은 두 시점의 차이로 공간의 깊이를 읽습니다.</p>
+  <div class="viewfinder" role="group" aria-label="로봇 카메라 뷰파인더">
+    <img id="sensor-photo" alt="스테레오 카메라가 관측한 도로 풍경" hidden>
+    <div class="finder-guides" aria-hidden="true"><span></span></div>
+    <div class="finder-readout" aria-hidden="true">
+      <span id="sensor-camera">SENSOR READY</span>
+      <span id="sensor-count">00 / 02</span>
+    </div>
+    <div id="sensor-flash" aria-hidden="true"></div>
+  </div>
+  <div class="capture-footer">
+    <div class="captures" aria-label="포착한 사진">
+      <figure id="capture-left" hidden><img alt="왼쪽 카메라 촬영 사진"><figcaption>01 · 왼쪽 카메라</figcaption></figure>
+      <figure id="capture-right" hidden><img alt="오른쪽 카메라 촬영 사진"><figcaption>02 · 오른쪽 카메라</figcaption></figure>
+    </div>
+    <div class="intro-actions">
+      <p id="capture-status" role="status">카메라 영상을 불러오는 중…</p>
+      <button id="enter-viewer" type="button" disabled>복원 시작 <span aria-hidden="true">→</span></button>
+    </div>
+  </div>
+</main>
+<main id="viewer" hidden><small>STEREO LAB</small><h1 tabindex="-1">두 사진에서 3D로</h1>
+<section aria-label="스테레오 연출">
+<button id="left" disabled>① 왼쪽 사진에서 점 꺼내기</button>
+<button id="right" disabled>② 오른쪽 사진에서 점 꺼내기</button>
+<button id="restart" disabled>처음부터</button>
+<button id="skip" disabled>3D 맵 바로 보기</button>
+</section>
+<p id="stage" role="status">데이터를 읽는 중…</p>
+<canvas></canvas><p id="status"></p>
 <section><label>표시 <select id="mode"><option value="0">RGB 점</option><option value="1">표면 법선</option><option value="2">RGB splat</option><option selected value="3">조명 splat</option></select></label>
-<button id="play">일시정지</button><button id="reset">카메라 초기화</button>
-<label>재생 시간 <input id="time" type="range" min="0" max="10" step=".01" value="0"> <output id="clock">0.00초</output></label></section>
-<section><label><input id="paint" type="checkbox"> 페인트 연출</label><label>방식 <select id="style"><option value="brush">붓질</option><option value="gun">페인트총</option></select></label><button data-time="2.7">초반</button><button data-time="4.3">중간</button><button data-time="10">완성</button></section>
-<section><button id="shadowDemo">도로 위 한 발 · 착지 직전</button>
-<label><input type="checkbox" id="shadow" checked> 입자 그림자</label>
+<button id="reset" disabled>카메라 초기화</button>
 <label>광원 위상 <input type="range" id="lightOffset" min="-180" max="180" value="0"> </label></section>
 <section aria-label="표면 효과">
 <label><input type="checkbox" id="expand"> 고정 배율 확대</label>
@@ -20,5 +55,10 @@
 <label>보정 강도 <input id="strength" type="range" min="0" max="100" step="1" value="100" disabled> <output id="amount">100%</output></label>
 <label><input id="blend" type="checkbox"> 다중 패스 블렌딩</label>
 <label><input id="edl" type="checkbox"> 깊이 윤곽 (EDL)</label></section>
-<canvas></canvas><p id="status" role="status">데이터를 읽는 중…</p><small>드래그로 회전 · 휠로 확대 · 왼쪽에서 오른쪽으로 착지 시각을 가정한 재질 시연</small></main>
-<script type="module" src="./viewer.js"></script></html>
+</main>
+<script type="module">
+  import('./viewer.js?v=paint-arc').catch(error => {
+    document.getElementById('capture-status').textContent = '뷰어 모듈을 불러오지 못했습니다. ' + error.message;
+    console.error(error);
+  });
+</script></html>
