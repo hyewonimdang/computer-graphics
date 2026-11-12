@@ -41,8 +41,8 @@ export function createEffects(renderer, scene, camera, mesh, {shadowSize = 2048}
     uniforms: {...base.uniforms,
       uProjection: {value: lightProjection}, uView: {value: lightView},
       viewport: {value: new THREE.Vector2(shadowSize, shadowSize)},
-      // 점군은 틈이 많아 원판을 그대로 쓰면 그림자가 체처럼 샌다. 캐스터만 2배로 키워 빈틈을 메운다.
-      radiusScale: {value: 2}, spacingStrength: {value: 0}},
+      // 점군은 틈이 많아 원판을 그대로 쓰면 그림자가 체처럼 샌다. 캐스터만 3배로 키워 빈틈을 메운다.
+      radiusScale: {value: 3}, spacingStrength: {value: 0}},
     vertexShader,
     fragmentShader: `
       precision highp float;
@@ -90,7 +90,8 @@ export function createEffects(renderer, scene, camera, mesh, {shadowSize = 2048}
       normalColor: {value: normals.texture},
       weightedColor: {value: sum?.texture ?? nearest.texture},
       viewport: base.uniforms.viewport, blend: {value: false}, edl: {value: false},
-      debug: {value: false}, depthRange: {value: 40}
+      debug: {value: false}, depthRange: {value: 40},
+      shadowDepth: {value: shadow.depthTexture}, showShadowMap: {value: false}
     },
     vertexShader: `
       precision highp float;
@@ -101,9 +102,9 @@ export function createEffects(renderer, scene, camera, mesh, {shadowSize = 2048}
     fragmentShader: `
       precision highp float;
       varying vec2 tex;
-      uniform sampler2D nearestDepth, baseColor, normalColor, weightedColor;
+      uniform sampler2D nearestDepth, baseColor, normalColor, weightedColor, shadowDepth;
       uniform vec2 viewport;
-      uniform bool blend, edl, debug;
+      uniform bool blend, edl, debug, showShadowMap;
       uniform float depthRange;
       ${depthFunction}
       float response(vec2 t, vec2 offset, float center) {
@@ -130,12 +131,15 @@ export function createEffects(renderer, scene, camera, mesh, {shadowSize = 2048}
       }
       void main(){
         if (!debug) { gl_FragColor = vec4(finalColor(tex),1); return; }
-        // 왼쪽 위 깊이, 오른쪽 위 법선, 왼쪽 아래 누적 가중치, 오른쪽 아래 최종
+        // 왼쪽 위 깊이(그림자 맵이 켜져 있으면 광원 시점 깊이), 오른쪽 위 법선, 왼쪽 아래 누적 가중치, 오른쪽 아래 최종
         vec2 cell = floor(tex * 2.0), t = fract(tex * 2.0);
         vec3 color;
         float d = texture2D(nearestDepth, t).r;
         if (cell.y > 0.5 && cell.x < 0.5) {
-          color = d < 1.0 ? vec3(1.0 - clamp(distanceAt(d) / depthRange, 0.0, 1.0)) : vec3(0.0);
+          if (showShadowMap) {
+            float s = texture2D(shadowDepth, t).r;
+            color = s < 1.0 ? vec3(1.0 - s) * 1.6 : vec3(0.0);
+          } else color = d < 1.0 ? vec3(1.0 - clamp(distanceAt(d) / depthRange, 0.0, 1.0)) : vec3(0.0);
         } else if (cell.y > 0.5) {
           color = texture2D(normalColor, t).rgb;
         } else if (cell.x < 0.5) {
@@ -193,6 +197,7 @@ export function createEffects(renderer, scene, camera, mesh, {shadowSize = 2048}
       composite.uniforms.blend.value = blend && canBlend;
       composite.uniforms.edl.value = edl;
       composite.uniforms.debug.value = debug;
+      composite.uniforms.showShadowMap.value = shadowMap;
       renderer.render(screen,screenCamera);
     }
   };

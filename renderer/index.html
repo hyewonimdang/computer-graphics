@@ -12,10 +12,10 @@
 <label>점 개수 <select id="density"><option value="1">전체</option><option value="0.5">1/2</option><option value="0.25">1/4</option></select></label>
 <output id="fps">— FPS</output></section>
 <section><label><input id="paint" type="checkbox"> 페인트 연출</label><label>방식 <select id="style"><option value="brush">붓질</option><option value="gun">페인트총</option></select></label><button data-time="2.7">초반</button><button data-time="4.3">중간</button><button data-time="10">완성</button></section>
-<section><label><input type="checkbox" id="shadowMap"> Shadow Mapping</label>
+<section><label><input type="checkbox" id="shadowMap"> Shadow Mapping</label><button id="shadowPreset">그림자 시연 (앞쪽 낮은 태양)</button>
 <button id="shadowDemo">도로 위 한 발 · 착지 직전</button>
 <label><input type="checkbox" id="shadow" checked> 입자 그림자</label>
-<label>광원 위상 <input type="range" id="lightOffset" min="-180" max="180" value="0"> </label>
+<label>광원 방위 <input type="range" id="lightOffset" min="-180" max="180" value="0"> </label>
 <label>광원 높이 <input type="range" id="lightHeight" min="0.05" max="2" step="0.05" value="0.7"> </label></section>
 <section aria-label="표면 효과">
 <label><input type="checkbox" id="expand"> 고정 배율 확대</label>

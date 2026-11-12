@@ -125,7 +125,9 @@ export const fragmentShader = `
       float wet = step(arrival,seconds)*(1.0-smoothstep(0.0,3.0,seconds-arrival));
       vec3 H = normalize(L+normalize(eye));
       float shine = diffuse > 0.0 ? pow(max(dot(N,H),0.0),mix(8.0,64.0,wet)) : 0.0;
-      vec3 linearRGB = pow(rgb,vec3(2.2))*(0.34+0.8*diffuse) + shine*mix(0.03,0.7,wet)*visibility;
+      // 그늘에서는 주변광도 절반으로 줄여 그림자가 분명히 보이게 한다.
+      float ambient = 0.34 * mix(0.45, 1.0, visibility);
+      vec3 linearRGB = pow(rgb,vec3(2.2))*(ambient+0.8*diffuse) + shine*mix(0.03,0.7,wet)*visibility;
       if (ink > 0.5) {
         float grazing = pow(1.0-clamp(dot(N,normalize(eye)),0.0,1.0),3.0);
         linearRGB += vec3(0.45,0.58,0.65)*wet*grazing;
@@ -183,7 +185,7 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
     uniforms: {
       uProjection: {value: new Float32Array(16)}, uView: {value: new Float32Array(16)}, uCameraPosition: {value: new Float32Array(3)},
       uLightVP: {value: new Float32Array(16)}, shadowMap: {value: null}, shadowMapOn: {value: false},
-      shadowSize: {value: new THREE.Vector2(2048, 2048)}, shadowBias: {value: 0.0012},
+      shadowSize: {value: new THREE.Vector2(2048, 2048)}, shadowBias: {value: 0.0004},
       keep: {value: 1},
       target: {value:new THREE.Vector3()}, planeNormal:{value:new THREE.Vector3()},
       shadowOn:{value:true}, lightDir:{value:new THREE.Vector3()}, gun: {value: false}, muzzle: {value: new THREE.Vector3()}, paint: {value: false}, spacingStrength: {value: 0}, radiusScale: {value: 1}, mode: {value: 3}, seconds: {value: 0}, viewport: {value: new THREE.Vector2()}},

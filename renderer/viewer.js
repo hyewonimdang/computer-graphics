@@ -70,6 +70,16 @@ async function start() {
     uniforms.planeNormal.value.fromBufferAttribute(mesh.geometry.attributes.surfaceNormal,hero);
   }
   element('shadow').onchange = e => { uniforms.shadowOn.value=e.target.checked; };
+  element('shadowPreset').onclick = () => {
+    element('shadowMap').checked = true;
+    element('lightHeight').value = 0.25;
+    element('lightOffset').value = 150;
+    element('paint').checked = false;
+    uniforms.paint.value = false;
+    element('mode').value = '3';
+    uniforms.mode.value = 3;
+    seek(0);
+  };
   element('shadowDemo').disabled = hero<0;
   element('shadowDemo').onclick = () => {
     element('style').value='gun';
@@ -167,7 +177,8 @@ async function start() {
     element('time').value = uniforms.seconds.value;
     element('clock').value = uniforms.seconds.value.toFixed(2)+'초';
     const phase=uniforms.seconds.value*0.6283185+Number(element('lightOffset').value)*Math.PI/180;
-    uniforms.lightDir.value.set(1.6*Math.sin(phase),Number(element('lightHeight').value),1).normalize();
+    // 광원 방위각: 0°는 카메라 뒤, ±180°는 장면 앞쪽(카메라를 향해 긴 그림자). 높이는 슬라이더.
+    uniforms.lightDir.value.set(Math.sin(phase),Number(element('lightHeight').value),Math.cos(phase)).normalize();
     applyCamera();
     effects.updateLight(uniforms.lightDir.value.toArray());
     effects.draw({
