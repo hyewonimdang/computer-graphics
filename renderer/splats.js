@@ -1,5 +1,18 @@
 import * as THREE from 'three';
-import {cameraToViewer} from '../stereo_reconstruction/stream_client/read_points.mjs';
+import {cameraToViewer} from '../stereo_reconstruction/stream_client/read_points.js';
+
+export const photoSplit = 0.53;
+export const photoPointShader = `
+  vec3 photoPaint(bool fromLeft) {
+    return fromLeft ? vec3(0.15, 0.47, 0.92) : vec3(0.88, 0.23, 0.53);
+  }
+  float dropVariation(vec2 imageUV) {
+    return fract(sin(dot(imageUV, vec2(127.1, 311.7))) * 43758.5453);
+  }
+  float pointFlight(float progress, float depthOrder) {
+    return (progress - (0.065 + 0.31 * depthOrder)) / 0.36;
+  }
+`;
 
 const shotPath = `
   vec3 projectile(vec3 origin, vec3 targetPoint, float t) {
@@ -29,11 +42,12 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
   const material = new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     uniforms: {target: {value:new THREE.Vector3()}, planeNormal:{value:new THREE.Vector3()},
-      shadowOn:{value:true}, lightDir:{value:new THREE.Vector3()}, gun: {value: false}, muzzle: {value: new THREE.Vector3()}, paint: {value: false}, spacingStrength: {value: 0}, radiusScale: {value: 1}, mode: {value: 3}, seconds: {value: 0}, viewport: {value: new THREE.Vector2()}},
+      shadowOn:{value:true}, lightDir:{value:new THREE.Vector3()}, gun: {value: false}, muzzle: {value: new THREE.Vector3()}, paint: {value: false}, spacingStrength: {value: 0}, radiusScale: {value: 1}, paintBuild: {value: new THREE.Vector2(1, 1)}, mode: {value: 3}, seconds: {value: 0}, viewport: {value: new THREE.Vector2()}},
     vertexShader: `
       attribute vec3 stroke;
       attribute float hero;
       ${shotPath}
+      ${photoPointShader}
       uniform bool paint, gun;
       uniform vec3 muzzle;
       uniform float seconds;
@@ -42,19 +56,27 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
       uniform int mode;
       uniform vec2 viewport;
       uniform float radiusScale, spacingStrength;
-      attribute float spacingRadius;
+      uniform vec2 paintBuild;
+      attribute float spacingRadius, depthOrder;
+      attribute vec2 leftPhotoUV;
       varying vec2 disc;
       varying vec3 rgb, n, eye;
-      varying float valid, arrival, ink;
+      varying float valid, arrival, ink, wetPhoto;
       void main() {
+        bool fromLeft = leftPhotoUV.x < ${photoSplit};
+        float flight = pointFlight(fromLeft ? paintBuild.x : paintBuild.y, depthOrder);
+        float coverage = smoothstep(1.0, 1.12, flight);
+        if (coverage <= 0.0) { gl_Position = vec4(2,2,2,1); return; }
         disc = position.xy;
-        rgb = pigment;
+        wetPhoto = 1.0 - smoothstep(1.18, 1.72, flight);
+        rgb = mix(pigment, photoPaint(fromLeft), 0.88 * wetPhoto);
         arrival = landedAt;
         valid = float(radius > 0.0);
         vec3 p = center;
         ink = float(paint && stroke.y > 0.0);
         bool flying = false;
-        float spread = 1.0;
+        float spread = 1.0 + 0.65 * wetPhoto * smoothstep(1.0, 1.13, flight)
+                     * (1.0 - smoothstep(1.14, 1.47, flight));
         if (ink > 0.5) {
           arrival = stroke.x;
           float age = seconds-arrival;
@@ -79,13 +101,13 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
           vec3 normalDir = normalize(surfaceNormal);
           vec3 axis = abs(normalDir.y) < 0.9 ? vec3(0,1,0) : vec3(1,0,0);
           vec3 tangent = normalize(cross(axis,normalDir));
-          p += spread * mix(radiusScale * radius, spacingRadius, spacingStrength) * (disc.x*tangent + disc.y*cross(normalDir,tangent));
+          p += coverage * spread * mix(radiusScale * radius, spacingRadius, spacingStrength) * (disc.x*tangent + disc.y*cross(normalDir,tangent));
         }
         eye = cameraPosition - p;
         n = surfaceNormal;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1);
         if (flying || mode == 0 || radius == 0.0)
-          gl_Position.xy += disc * (flying ? (gun ? (hero>0.5 ? 17.0 : 6.0) : 2.0) : (gun && ink > 0.5 ? 2.5*spread : 2.5)) / viewport * gl_Position.w;
+          gl_Position.xy += coverage * disc * (flying ? (gun ? (hero>0.5 ? 17.0 : 6.0) : 2.0) : (gun && ink > 0.5 ? 2.5*spread : 2.5)) / viewport * gl_Position.w;
       }`,
     fragmentShader: `
       ${shotPath}
@@ -95,7 +117,7 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
       uniform float seconds;
       varying vec2 disc;
       varying vec3 rgb, n, eye;
-      varying float valid, arrival, ink;
+      varying float valid, arrival, ink, wetPhoto;
       void main() {
         if (dot(disc,disc) > 1.0) discard;
         vec3 color = rgb;
@@ -107,7 +129,8 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
           float wet = step(arrival,seconds)*(1.0-smoothstep(0.0,3.0,seconds-arrival));
           vec3 H = normalize(L+normalize(eye));
           float shine = diffuse > 0.0 ? pow(max(dot(N,H),0.0),mix(8.0,64.0,wet)) : 0.0;
-          vec3 linearRGB = pow(rgb,vec3(2.2))*(0.34+0.8*diffuse) + shine*mix(0.03,0.7,wet);
+          float light = mix(0.34 + 0.8 * diffuse, 0.68 + 0.30 * diffuse, wetPhoto);
+          vec3 linearRGB = pow(rgb,vec3(2.2)) * light + shine * mix(0.03, 0.7, wet) * (1.0 - wetPhoto);
           if (ink > 0.5) {
             float grazing = pow(1.0-clamp(dot(N,normalize(eye)),0.0,1.0),3.0);
             linearRGB += vec3(0.45,0.58,0.65)*wet*grazing;
@@ -133,6 +156,8 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
         gl_FragColor = vec4(color,1);
       }`
   });
+  material.defaultAttributeValues.leftPhotoUV = [0.5, 0.5];
+  material.defaultAttributeValues.depthOrder = [0];
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false; // The base quad bounds exclude instance centers.
   return mesh;
