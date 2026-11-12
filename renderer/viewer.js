@@ -1,14 +1,11 @@
 import * as THREE from 'three';
-import {OrbitControls} from './node_modules/three/examples/jsm/controls/OrbitControls.js';
 import {readPointBuffer} from '../stereo_reconstruction/stream_client/read_points.mjs';
 import {readSurfaceBuffer} from '../stereo_reconstruction/stream_client/read_surface.mjs';
 import {createSplats} from './splats.js';
-
 import {createEffects} from './effects.js';
-
 import {spacingRadii} from './spacing.js';
-
 import {brushStroke, gunStroke} from './paint.js';
+import {createOrbitCamera, mat4, poseToViewer} from './camera.js';
 
 const element = id => document.getElementById(id);
 async function load(name, type) {
@@ -46,24 +43,28 @@ async function start() {
   const renderer = new THREE.WebGLRenderer({canvas,antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setClearColor(0x0b1014);
-  const K = frame.K_rect;
-  const camera = new THREE.PerspectiveCamera(THREE.MathUtils.radToDeg(2*Math.atan(height/(2*K[1][1]))),width/height,0.05,2000);
-  const projection = camera.projectionMatrix.elements;
-  projection[0] = 2*K[0][0]/width;
-  projection[8] = 1-2*(K[0][2]+0.5)/width;
-  projection[9] = 2*(K[1][2]+0.5)/height-1;
-  camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-  const flip = new THREE.Matrix4().makeScale(1,-1,-1);
-  const pose = new THREE.Matrix4().fromArray(frame.T_world_from_observation_camera_column_major);
-  pose.premultiply(flip).multiply(flip).decompose(camera.position,camera.quaternion,camera.scale);
-  camera.up.applyQuaternion(camera.quaternion);
-  const initialTarget = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(12).add(camera.position);
-  const controls = new OrbitControls(camera,canvas);
-  controls.target.copy(initialTarget);
-  controls.update();
-  controls.saveState();
-  element('reset').onclick = () => controls.reset();
+
+  // B · 카메라. 투영 행렬은 frame.json의 K_rect에서, 초기 포즈는 카메라 포즈에서 직접 계산한다 (camera.js).
+  // Three.js에는 행렬을 그대로 복사한 Camera 껍데기만 넘겨 드로 호출에 쓴다.
+  const pose = poseToViewer(frame.T_world_from_observation_camera_column_major);
+  const orbit = createOrbitCamera(canvas, {K: frame.K_rect, width, height, near: 0.05, far: 2000,
+    pose: frame.T_world_from_observation_camera_column_major, lookDistance: 12});
+  const camera = new THREE.Camera();
+  camera.matrixAutoUpdate = false;
+  camera.matrixWorldAutoUpdate = false;
+  camera.near = orbit.near; camera.far = orbit.far;
+  camera.projectionMatrix.fromArray(orbit.projection);
+  camera.projectionMatrixInverse.fromArray(mat4.invert(orbit.projection));
   const uniforms = mesh.material.uniforms;
+  uniforms.uProjection.value.set(orbit.projection);
+  function applyCamera() {
+    const {view, position} = orbit.update();
+    uniforms.uView.value.set(view);
+    uniforms.uCameraPosition.value.set(position);
+    camera.matrixWorldInverse.fromArray(view);
+    camera.matrixWorld.fromArray(mat4.invert(view));
+  }
+  element('reset').onclick = () => orbit.reset();
   if (hero>=0) {
     uniforms.target.value.fromBufferAttribute(mesh.geometry.attributes.center,hero);
     uniforms.planeNormal.value.fromBufferAttribute(mesh.geometry.attributes.surfaceNormal,hero);
@@ -75,7 +76,7 @@ async function start() {
     element('style').dispatchEvent(new Event('change'));
     seek(9.27);
   };
-  uniforms.muzzle.value.set(0.64,-0.20,-1.0).applyMatrix4(pose);
+  uniforms.muzzle.value.fromArray(mat4.transformPoint(pose, [0.64,-0.20,-1.0]));
   element('style').onchange = e => {
     uniforms.gun.value = e.target.value === 'gun';
     const stroke = mesh.geometry.getAttribute('stroke');
@@ -85,6 +86,7 @@ async function start() {
     element('paint').onchange({target: element('paint')});
   };
   element('mode').onchange = e => { uniforms.mode.value = Number(e.target.value); };
+  element('density').onchange = e => { uniforms.keep.value = Number(e.target.value); };
   const effects = createEffects(renderer, scene, camera, mesh);
   const expand = element('expand'), scale = element('scale');
   function updateScale() {
@@ -143,6 +145,17 @@ async function start() {
       seek(Number(button.dataset.time));
     };
   }
+  // URL 쿼리로 컨트롤을 미리 설정한다. 예: ?mode=3&shadowMap=1&debug=1&blend=1&time=4.3 (시연 링크·자동 검증용)
+  for (const [key, value] of new URLSearchParams(location.search)) {
+    const control = element(key);
+    if (!control) continue;
+    if (control.type === 'checkbox') control.checked = value !== '0';
+    else control.value = value;
+    control.dispatchEvent(new Event(control.type === 'range' ? 'input' : 'change'));
+    if (key === 'time') seek(Number(value));
+  }
+  // FPS: 0.5초마다 그 사이의 프레임 수로 갱신
+  let frames = 0, fpsSince = performance.now();
   let last = performance.now();
   renderer.setAnimationLoop(now => {
     if (playing) {
@@ -154,8 +167,18 @@ async function start() {
     element('time').value = uniforms.seconds.value;
     element('clock').value = uniforms.seconds.value.toFixed(2)+'초';
     const phase=uniforms.seconds.value*0.6283185+Number(element('lightOffset').value)*Math.PI/180;
-    uniforms.lightDir.value.set(1.6*Math.sin(phase),0.7,1).normalize();
-    effects.draw(element('blend').checked, element('edl').checked);
+    uniforms.lightDir.value.set(1.6*Math.sin(phase),Number(element('lightHeight').value),1).normalize();
+    applyCamera();
+    effects.updateLight(uniforms.lightDir.value.toArray());
+    effects.draw({
+      blend: element('blend').checked, edl: element('edl').checked,
+      debug: element('debug').checked, shadowMap: element('shadowMap').checked
+    });
+    frames++;
+    if (now - fpsSince >= 500) {
+      element('fps').value = (1000*frames/(now-fpsSince)).toFixed(0)+' FPS';
+      frames = 0; fpsSince = now;
+    }
   });
   element('status').textContent = '점 '+points.count.toLocaleString()+'개 · 유효 법선 '+surface.radii.reduce((sum,r)=>sum+Number(r>0),0).toLocaleString()+'개';
 }
