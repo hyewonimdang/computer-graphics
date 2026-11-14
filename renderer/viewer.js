@@ -1,14 +1,25 @@
 import * as THREE from 'three';
+<<<<<<< Updated upstream
 import {OrbitControls} from './node_modules/three/examples/jsm/controls/OrbitControls.js';
 import {readPointBuffer} from '../stereo_reconstruction/stream_client/read_points.js';
 import {readSurfaceBuffer} from '../stereo_reconstruction/stream_client/read_surface.js';
 import {createSplats} from './splats.js?v=paint-arc';
+=======
+import {createOrbitCamera, mat4, poseToViewer} from './camera.js';
+import {readPointBuffer} from '../stereo_reconstruction/stream_client/read_points.mjs';
+import {readSurfaceBuffer} from '../stereo_reconstruction/stream_client/read_surface.mjs';
+import {createSplats} from './splats.js';
+>>>>>>> Stashed changes
 
 import {createEffects} from './effects.js';
 
 import {spacingRadii} from './spacing.js';
 
+<<<<<<< Updated upstream
 import {createStereoTransition, loadStereoPhotos} from './stereo-transition.js?v=paint-arc';
+=======
+import {createStereoTransition, loadStereoPhotos} from './stereo-transition.js';
+>>>>>>> Stashed changes
 
 const stageText = {
   ready: '같은 장면을 찍은 좌우 카메라 사진입니다. 왼쪽부터 점을 펼쳐 보세요.',
@@ -20,8 +31,15 @@ const stageText = {
 };
 
 const element = id => document.getElementById(id);
+<<<<<<< Updated upstream
 const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
+=======
+// 셔터 연출 사이에 정해진 시간만큼 기다린다.
+const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+// 좌우 사진을 찍는 셔터 연출을 보여 주고 복원 시작 버튼을 켠다.
+>>>>>>> Stashed changes
 async function playIntro(photos) {
   const status = element('capture-status');
   const enter = element('enter-viewer');
@@ -51,12 +69,20 @@ async function playIntro(photos) {
   const count = element('sensor-count');
   const flash = element('sensor-flash');
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+<<<<<<< Updated upstream
+=======
+  // 셔터 순서: 왼쪽과 오른쪽 사진을 순서대로 보여 준다.
+>>>>>>> Stashed changes
   for (let i = 0; i < previews.length; i++) {
     sensorPhoto.src = previews[i].src;
     sensorPhoto.hidden = false;
     cameraReadout.textContent = i === 0 ? 'CAM L · LIVE' : 'CAM R · LIVE';
     status.textContent = i === 0 ? '왼쪽 카메라 조준 중' : '오른쪽 카메라 조준 중';
     await wait(i === 0 ? 920 : 780);
+<<<<<<< Updated upstream
+=======
+    // 셔터 효과: 흰 화면을 짧게 띄웠다가 사라지게 한다.
+>>>>>>> Stashed changes
     const shutter = flash.animate([{opacity: reduceMotion ? 0.38 : 1}, {opacity: 0}], {
       duration: reduceMotion ? 130 : 230, easing: 'ease-out'
     });
@@ -91,6 +117,7 @@ async function start() {
   const renderer = new THREE.WebGLRenderer({canvas,antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setClearColor(0x0b1014);
+<<<<<<< Updated upstream
   const K = frame.K_rect;
   const camera = new THREE.PerspectiveCamera(THREE.MathUtils.radToDeg(2*Math.atan(height/(2*K[1][1]))),width/height,0.05,2000);
   const projection = camera.projectionMatrix.elements;
@@ -105,6 +132,17 @@ async function start() {
   const initialTarget = camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(12).add(camera.position);
   const controls = new OrbitControls(camera,canvas);
   controls.target.copy(initialTarget);
+=======
+  const pose = poseToViewer(frame.T_world_from_observation_camera_column_major);
+  const orbit = createOrbitCamera(canvas, {K: frame.K_rect, width, height, near: 0.05, far: 2000,
+    pose: frame.T_world_from_observation_camera_column_major, lookDistance: 12});
+  const camera = new THREE.Camera();
+  camera.matrixAutoUpdate = false;
+  camera.matrixWorldAutoUpdate = false;
+  camera.near = orbit.near; camera.far = orbit.far;
+  camera.projectionMatrix.fromArray(orbit.projection);
+  camera.projectionMatrixInverse.fromArray(mat4.invert(orbit.projection));
+>>>>>>> Stashed changes
   const uniforms = mesh.material.uniforms;
   const transition = photos && points.count > 0
     ? createStereoTransition(photos, points, frame, mesh, pose, renderer.getPixelRatio())
@@ -121,6 +159,7 @@ async function start() {
   } else {
     photos?.textures.forEach(texture => texture.dispose());
   }
+<<<<<<< Updated upstream
   controls.update();
   const overviewPosition = camera.position.clone();
   const overviewTarget = controls.target.clone();
@@ -152,6 +191,63 @@ async function start() {
   updateStage();
   element('mode').onchange = e => { uniforms.mode.value = Number(e.target.value); };
   const effects = createEffects(renderer, scene, camera, mesh);
+=======
+  const transition = photos && points.count > 0
+    ? createStereoTransition(photos, points, frame, mesh, new THREE.Matrix4().fromArray(pose), renderer.getPixelRatio())
+    : null;
+  if (transition) {
+    scene.add(transition.group);
+    transition.restart();
+    element('left').onclick = () => { transition.startLeft(); updateStage(); };
+    element('right').onclick = () => { transition.startRight(); updateStage(); };
+    element('restart').onclick = () => { transition.restart(); updateStage(); };
+    element('skip').onclick = () => { transition.finish(); updateStage(); };
+  } else {
+    photos?.textures.forEach(texture => texture.dispose());
+  }
+  element('reset').onclick = () => {
+    if (transition) orbit.reset(transition.overviewPosition.toArray(), transition.overviewTarget.toArray());
+    else orbit.reset();
+    applyCamera();
+  };
+  element('reset').onclick();
+  element('reset').disabled = false;
+
+  let displayedStage;
+  let surfaceAge = 4;
+  // 연출 단계에 맞춰 안내 문구와 사용할 수 있는 버튼을 바꾼다.
+  function updateStage() {
+    const stage = transition?.stage ?? 'complete';
+    if (stage === displayedStage) return;
+    displayedStage = stage;
+    const complete = stage === 'complete';
+    if (stage === 'reveal') {
+      element('mode').value = uniforms.mode.value = 3;
+    }
+    element('left').disabled = stage !== 'ready';
+    element('right').disabled = stage !== 'rightReady';
+    element('skip').disabled = complete;
+    element('shadowMap').disabled = element('debug').disabled = element('density').disabled = !complete;
+    uniforms.keep.value = complete ? Number(element('density').value) : 1;
+    element('restart').disabled = !transition || stage === 'ready';
+    element('stage').textContent = transition ? stageText[stage] :
+      points.count === 0 ? '이 프레임에 복원된 점이 없습니다.' :
+      '사진 한 쌍을 찾지 못해 3D 맵을 바로 표시합니다.';
+  }
+  updateStage();
+  element('mode').onchange = e => { uniforms.mode.value = Number(e.target.value); };
+  element('density').onchange = e => { uniforms.keep.value = Number(e.target.value); };
+  const effects = createEffects(renderer, scene, camera, mesh);
+  element('shadowPreset').onclick = () => {
+    element('shadowMap').checked = true;
+    element('lightHeight').value = 0.25;
+    element('lightOffset').value = 150;
+    element('mode').value = '3';
+    uniforms.mode.value = 3;
+    transition?.finish();
+    updateStage();
+  };
+>>>>>>> Stashed changes
   const expand = element('expand'), scale = element('scale');
   function updateScale() {
     const adaptive = element('adaptive').checked;
@@ -181,6 +277,17 @@ async function start() {
   canvas.style.maxWidth = 'calc(max(240px, 100svh - 245px) * ' + (width / height) + ')';
   new ResizeObserver(resize).observe(canvas);
   resize();
+<<<<<<< Updated upstream
+=======
+  for (const [key, value] of new URLSearchParams(location.search)) {
+    const control = element(key);
+    if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement)) continue;
+    if (control.type === 'checkbox') control.checked = value !== '0';
+    else control.value = value;
+    control.dispatchEvent(new Event(control.type === 'range' ? 'input' : 'change'));
+  }
+  let frames = 0, fpsSince = performance.now();
+>>>>>>> Stashed changes
   let last = performance.now();
   const viewer = element('viewer');
   renderer.setAnimationLoop(now => {
@@ -191,10 +298,30 @@ async function start() {
     updateStage();
     surfaceAge += delta;
     uniforms.seconds.value = surfaceAge;
+<<<<<<< Updated upstream
     const phase = now * 0.0006283185 + Number(element('lightOffset').value) * Math.PI / 180;
     uniforms.lightDir.value.set(1.6*Math.sin(phase),0.7,1).normalize();
     if (displayedStage === 'complete') effects.draw(element('blend').checked, element('edl').checked);
     else renderer.render(scene, camera);
+=======
+    const phase = Number(element('lightOffset').value) * Math.PI / 180;
+    uniforms.lightDir.value.set(Math.sin(phase), Number(element('lightHeight').value), Math.cos(phase)).normalize();
+    applyCamera();
+    if (displayedStage === 'complete') {
+      const shadowMap = element('shadowMap').checked;
+      if (shadowMap) effects.updateLight(uniforms.lightDir.value.toArray());
+      effects.draw({blend: element('blend').checked, edl: element('edl').checked,
+                    debug: element('debug').checked, shadowMap});
+    } else {
+      uniforms.shadowMapOn.value = false;
+      renderer.render(scene, camera);
+    }
+    frames++;
+    if (now - fpsSince >= 500) {
+      element('fps').value = (1000*frames/(now-fpsSince)).toFixed(0)+' FPS';
+      frames = 0; fpsSince = now;
+    }
+>>>>>>> Stashed changes
   });
   const photoType = transition ? (photos.rectified ? ' · 정류 사진' : ' · 원본 사진') : '';
   element('status').textContent = '점 '+points.count.toLocaleString()+'개 · 유효 법선 '+surface.radii.reduce((sum,r)=>sum+Number(r>0),0).toLocaleString()+'개'+photoType;
