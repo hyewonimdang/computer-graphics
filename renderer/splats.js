@@ -4,8 +4,27 @@ import {cameraToViewer} from '../stereo_reconstruction/stream_client/read_points
 // B · 표면 splat 셰이더. RawShaderMaterial이라 Three.js가 넣어 주는 행렬·카메라 uniform이 없다.
 // 투영·뷰 행렬(uProjection, uView)과 카메라 위치(uCameraPosition)는 camera.js가 직접 계산해 넘긴다.
 
+export const photoSplit = 0.53;
+export const photoPointShader = `
+  // 왼쪽 사진에는 파란색, 오른쪽 사진에는 분홍색을 준다.
+  vec3 photoPaint(bool fromLeft) {
+    return fromLeft ? vec3(0.15, 0.47, 0.92) : vec3(0.88, 0.23, 0.53);
+  }
+  // 사진 속 위치마다 다른 값을 만들어 입자 움직임에 차이를 준다.
+  float dropVariation(vec2 imageUV) {
+    return fract(sin(dot(imageUV, vec2(127.1, 311.7))) * 43758.5453);
+  }
+  // 카메라에 가까운 점부터 출발하도록 각 입자의 진행률을 계산한다.
+  float pointFlight(float progress, float depthOrder) {
+    // 출발 시간: 깊이 값이 클수록 늦게 출발한다. 결과가 1이면 착지다.
+    return (progress - (0.065 + 0.31 * depthOrder)) / 0.36;
+  }
+`;
+
 const shotPath = `
+  // 출발점과 도착점 사이에서 포물선을 따라 움직이는 위치를 계산한다.
   vec3 projectile(vec3 origin, vec3 targetPoint, float t) {
+    // 포물선 식: 두 점 사이의 직선 위치에 y축으로 1.4t(1-t)를 더한다.
     return mix(origin,targetPoint,t)+vec3(0.0,1.4*t*(1.0-t),0.0);
   }`;
 
@@ -40,6 +59,10 @@ export const vertexShader = `
   attribute vec3 position;
   attribute vec3 stroke;
   attribute float hero, lot;
+  attribute vec2 leftPhotoUV;
+  attribute float depthOrder;
+  uniform vec2 paintBuild;
+  ${photoPointShader}
   ${shotPath}
   uniform bool paint, gun;
   uniform vec3 muzzle;
@@ -52,18 +75,26 @@ export const vertexShader = `
   attribute float spacingRadius;
   varying vec2 disc;
   varying vec3 rgb, n, eye;
-  varying float valid, arrival, ink;
+  varying float valid, arrival, ink, wetPhoto;
   void main() {
     // 점 개수 비교용 다운샘플: point_id 해시가 keep보다 크면 화면 밖으로 보낸다.
     if (lot > keep) { gl_Position = vec4(2,2,2,1); return; }
+    bool fromLeft = leftPhotoUV.x < ${photoSplit};
+    float flight = pointFlight(fromLeft ? paintBuild.x : paintBuild.y, depthOrder);
+    // 표면 드러내기: 입자가 도착하기 전에는 해당 3D 점을 숨긴다.
+    float coverage = smoothstep(1.0, 1.12, flight);
+    if (coverage <= 0.0) { gl_Position = vec4(2,2,2,1); return; }
     disc = position.xy;
-    rgb = pigment;
+    // 물감 건조: 착지 후 파란색이나 분홍색의 비중을 줄여 원래 RGB로 돌아간다.
+    wetPhoto = 1.0 - smoothstep(1.18, 1.72, flight);
+    rgb = mix(pigment, photoPaint(fromLeft), 0.88 * wetPhoto);
     arrival = landedAt;
     valid = float(radius > 0.0);
     vec3 p = center;
     ink = float(paint && stroke.y > 0.0);
     bool flying = false;
-    float spread = 1.0;
+    float spread = 1.0 + 0.65 * wetPhoto * smoothstep(1.0, 1.13, flight)
+                 * (1.0 - smoothstep(1.14, 1.47, flight));
     if (ink > 0.5) {
       arrival = stroke.x;
       float age = seconds-arrival;
@@ -89,13 +120,13 @@ export const vertexShader = `
       vec3 normalDir = normalize(surfaceNormal);
       vec3 axis = abs(normalDir.y) < 0.9 ? vec3(0,1,0) : vec3(1,0,0);
       vec3 tangent = normalize(cross(axis,normalDir));
-      p += spread * mix(radiusScale * radius, spacingRadius, spacingStrength) * (disc.x*tangent + disc.y*cross(normalDir,tangent));
+      p += coverage * spread * mix(radiusScale * radius, spacingRadius, spacingStrength) * (disc.x*tangent + disc.y*cross(normalDir,tangent));
     }
     eye = uCameraPosition - p;
     n = surfaceNormal;
     gl_Position = uProjection * uView * vec4(p,1);
     if (flying || mode == 0 || radius == 0.0)
-      gl_Position.xy += disc * (flying ? (gun ? (hero>0.5 ? 17.0 : 6.0) : 2.0) : (gun && ink > 0.5 ? 2.5*spread : 2.5)) / viewport * gl_Position.w;
+      gl_Position.xy += coverage * disc * (flying ? (gun ? (hero>0.5 ? 17.0 : 6.0) : 2.0) : (gun && ink > 0.5 ? 2.5*spread : 2.5)) / viewport * gl_Position.w;
   }`;
 
 export const fragmentShader = `
@@ -110,7 +141,7 @@ export const fragmentShader = `
   uniform float seconds;
   varying vec2 disc;
   varying vec3 rgb, n, eye;
-  varying float valid, arrival, ink;
+  varying float valid, arrival, ink, wetPhoto;
   void main() {
     if (dot(disc,disc) > 1.0) discard;
     vec3 color = rgb;
@@ -126,8 +157,8 @@ export const fragmentShader = `
       vec3 H = normalize(L+normalize(eye));
       float shine = diffuse > 0.0 ? pow(max(dot(N,H),0.0),mix(8.0,64.0,wet)) : 0.0;
       // 그늘에서는 주변광도 절반으로 줄여 그림자가 분명히 보이게 한다.
-      float ambient = 0.34 * mix(0.45, 1.0, visibility);
-      vec3 linearRGB = pow(rgb,vec3(2.2))*(ambient+0.8*diffuse) + shine*mix(0.03,0.7,wet)*visibility;
+      float ambient = mix(0.34, 0.68, wetPhoto) * mix(0.45, 1.0, visibility);
+      vec3 linearRGB = pow(rgb,vec3(2.2))*(ambient + mix(0.8, 0.30, wetPhoto)*diffuse) + shine*mix(0.03,0.7,wet)*visibility*(1.0-wetPhoto);
       if (ink > 0.5) {
         float grazing = pow(1.0-clamp(dot(N,normalize(eye)),0.0,1.0),3.0);
         linearRGB += vec3(0.45,0.58,0.65)*wet*grazing;
@@ -178,6 +209,8 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
   attribute('spacingRadius', spacing, 1);
   attribute('pigment', points.rgb, 3, true);
   attribute('landedAt', landingTimes, 1);
+  attribute('leftPhotoUV', new Float32Array(points.count * 2), 2);
+  attribute('depthOrder', new Float32Array(points.count), 1);
   attribute('lot', lots(points.pointIds), 1);
   attribute('hero', new Float32Array(points.count), 1);
   const material = new THREE.RawShaderMaterial({
@@ -186,7 +219,7 @@ export function createSplats(points, surface, landingTimes, spacing = surface.ra
       uProjection: {value: new Float32Array(16)}, uView: {value: new Float32Array(16)}, uCameraPosition: {value: new Float32Array(3)},
       uLightVP: {value: new Float32Array(16)}, shadowMap: {value: null}, shadowMapOn: {value: false},
       shadowSize: {value: new THREE.Vector2(2048, 2048)}, shadowBias: {value: 0.0004},
-      keep: {value: 1},
+      keep: {value: 1}, paintBuild: {value: new THREE.Vector2(1, 1)},
       target: {value:new THREE.Vector3()}, planeNormal:{value:new THREE.Vector3()},
       shadowOn:{value:true}, lightDir:{value:new THREE.Vector3()}, gun: {value: false}, muzzle: {value: new THREE.Vector3()}, paint: {value: false}, spacingStrength: {value: 0}, radiusScale: {value: 1}, mode: {value: 3}, seconds: {value: 0}, viewport: {value: new THREE.Vector2()}},
     vertexShader,

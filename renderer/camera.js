@@ -141,11 +141,11 @@ export function createOrbitCamera(canvas, {K, width, height, near = 0.05, far = 
   const view = new Float32Array(16);
   let position = [0, 0, 0];
 
-  function reset() {
-    state.target = add(home.eye, scale(home.forward, lookDistance));
-    state.distance = lookDistance;
+  function reset(eye = home.eye, target = add(home.eye, scale(home.forward, lookDistance))) {
+    state.target = target.slice();
+    state.distance = length(sub(eye, target));
     // 초기 시선: target에서 eye로 향하는 오프셋 = -forward·distance → yaw는 π(뒤쪽), pitch는 forward의 기울기.
-    const offset = normalize(sub(home.eye, state.target));
+    const offset = normalize(sub(eye, state.target));
     state.pitch = Math.asin(Math.max(-1, Math.min(1, dot(offset, axisY))));
     state.yaw = Math.atan2(dot(offset, axisX), dot(offset, axisZ));
   }
