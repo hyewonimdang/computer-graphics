@@ -46,18 +46,36 @@
 <p id="stage" role="status">데이터를 읽는 중…</p>
 <canvas></canvas><p id="status"></p>
 <section><label>표시 <select id="mode"><option value="0">RGB 점</option><option value="1">표면 법선</option><option value="2">RGB splat</option><option selected value="3">조명 splat</option></select></label>
+<<<<<<< Updated upstream
 <button id="reset" disabled>카메라 초기화</button>
 <label>광원 위상 <input type="range" id="lightOffset" min="-180" max="180" value="0"> </label></section>
+=======
+<label>점 개수 <select id="density"><option value="1">전체</option><option value="0.5">1/2</option><option value="0.25">1/4</option></select></label>
+<output id="fps">— FPS</output>
+<button id="reset" disabled>카메라 초기화</button>
+<label>광원 방위 <input type="range" id="lightOffset" min="-180" max="180" value="0"> </label>
+<label>광원 높이 <input type="range" id="lightHeight" min="0.05" max="2" step="0.05" value="0.7"> </label></section>
+>>>>>>> Stashed changes
 <section aria-label="표면 효과">
+<label><input type="checkbox" id="shadowMap"> Shadow Mapping</label><button id="shadowPreset">그림자 시연 (앞쪽 낮은 태양)</button>
+
 <label><input type="checkbox" id="expand"> 고정 배율 확대</label>
 <label>반경 <input id="scale" type="range" min="1" max="3" step=".1" value="1.5" disabled> <output id="factor">1.5×</output></label>
 <label><input id="adaptive" type="checkbox"> 주변 간격 기반 반경</label>
 <label>보정 강도 <input id="strength" type="range" min="0" max="100" step="1" value="100" disabled> <output id="amount">100%</output></label>
 <label><input id="blend" type="checkbox"> 다중 패스 블렌딩</label>
+<<<<<<< Updated upstream
 <label><input id="edl" type="checkbox"> 깊이 윤곽 (EDL)</label></section>
 </main>
 <script type="module">
   import('./viewer.js?v=paint-arc').catch(error => {
+=======
+<label><input type="checkbox" id="edl"> 깊이 윤곽 (EDL)</label>
+<label><input type="checkbox" id="debug"> 패스별 디버그 뷰</label></section>
+</main>
+<script type="module">
+  import('./viewer.js').catch(error => {
+>>>>>>> Stashed changes
     document.getElementById('capture-status').textContent = '뷰어 모듈을 불러오지 못했습니다. ' + error.message;
     console.error(error);
   });

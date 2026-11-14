@@ -1,9 +1,17 @@
 import * as THREE from 'three';
+<<<<<<< Updated upstream
 import {photoPointShader, photoSplit} from './splats.js?v=paint-arc';
+=======
+import {photoPointShader, photoSplit} from './splats.js';
+>>>>>>> Stashed changes
 
 const stageDuration = {left: 5.3, right: 5.3, reveal: 1.25};
 const nextStage = {left: 'rightReady', right: 'reveal', reveal: 'complete'};
 
+<<<<<<< Updated upstream
+=======
+// 보정된 좌우 사진을 먼저 불러오고, 없으면 원본 사진을 불러온다.
+>>>>>>> Stashed changes
 export async function loadStereoPhotos() {
   const loader = new THREE.TextureLoader();
   for (const suffix of ['_rectified', '']) {
@@ -18,6 +26,10 @@ export async function loadStereoPhotos() {
   return null;
 }
 
+<<<<<<< Updated upstream
+=======
+// 촬영 위치에 사진을 놓고 물감이 출발한 자리를 지운다.
+>>>>>>> Stashed changes
 function makePhotoPanel(photo, side, cameraX, paintBuild) {
   const aspect = photo.image.width / photo.image.height;
   const width = Math.min(5.2, 1.65 * aspect);
@@ -41,6 +53,10 @@ function makePhotoPanel(photo, side, cameraX, paintBuild) {
       varying vec2 imageUV;
       void main() {
         float progress = fromLeft ? paintBuild.x : paintBuild.y;
+<<<<<<< Updated upstream
+=======
+        // 사진 녹이기: 픽셀 높이마다 사라지기 시작하는 시간을 다르게 준다.
+>>>>>>> Stashed changes
         float release = 0.065 + 0.31 * imageUV.y;
         float opacity = 1.0 - smoothstep(release + 0.04, release + 0.27, progress);
         if (opacity <= 0.0) discard;
@@ -60,6 +76,10 @@ function makePhotoPanel(photo, side, cameraX, paintBuild) {
   return panel;
 }
 
+<<<<<<< Updated upstream
+=======
+// 사진의 픽셀에서 맵의 3D 점까지 날아가는 물감 입자를 만든다.
+>>>>>>> Stashed changes
 function makePhotoPoints(panel, indices, localCenters, depthOrder, leftUV, rightUV, pixelRatio) {
   const {width, height} = panel.geometry.parameters;
   const {photo, fromLeft, paintBuild} = panel.material.uniforms;
@@ -69,10 +89,18 @@ function makePhotoPoints(panel, indices, localCenters, depthOrder, leftUV, right
   const dropOrder = new Float32Array(indices.length);
   const point = new THREE.Vector3();
   indices.forEach((index, i) => {
+<<<<<<< Updated upstream
+=======
+    // 입자 출발점: 해당 사진의 픽셀 좌표를 사진 판 위 3D 위치로 바꾼다.
+>>>>>>> Stashed changes
     const u = fromLeft.value ? leftUV[2*index] : rightUV[2*index];
     const v = 1 - leftUV[2*index+1];
     point.set((u - 0.5) * width, (v - 0.5) * height, 0.025)
       .applyMatrix4(panel.matrix).toArray(starts, 3*i);
+<<<<<<< Updated upstream
+=======
+    // 입자 도착점: Python에서 미리 복원한 3D 점의 위치를 넣는다.
+>>>>>>> Stashed changes
     ends.set(localCenters.subarray(3*index, 3*index+3), 3*i);
     sourceUV.set([u, v], 2*i);
     dropOrder[i] = depthOrder[index];
@@ -105,8 +133,15 @@ function makePhotoPoints(panel, indices, localCenters, depthOrder, leftUV, right
         }
         float variation = dropVariation(sourceUV);
         float t = clamp(flight, 0.0, 1.0);
+<<<<<<< Updated upstream
         float arc = 4.0 * t * (1.0 - t);
         float height = mix(1.0, 3.4, variation);
+=======
+        // 포물선 식: 4t(1-t)는 출발과 도착에서 0이고, 중간에서 1이다.
+        float arc = 4.0 * t * (1.0 - t);
+        float height = mix(1.0, 3.4, variation);
+        // 비행 위치: 직선 이동에 포물선 높이와 약간의 좌우 흔들림을 더한다.
+>>>>>>> Stashed changes
         vec3 p = mix(position, destination, t);
         p += arc * vec3((variation - 0.5) * 1.35, height, 0.0);
         vec4 view = modelViewMatrix * vec4(p, 1.0);
@@ -126,6 +161,10 @@ function makePhotoPoints(panel, indices, localCenters, depthOrder, leftUV, right
       varying float opacity, stretch;
       void main() {
         vec2 disc = gl_PointCoord * 2.0 - 1.0;
+<<<<<<< Updated upstream
+=======
+        // 물방울 모양: 비행 후반에는 원형 점의 한쪽을 좁혀 꼬리를 만든다.
+>>>>>>> Stashed changes
         float tail = 1.0 - smoothstep(-0.80, 0.45, disc.y);
         float width = mix(0.72, mix(0.23, 0.71, 1.0 - tail), stretch);
         vec2 drop = vec2(disc.x / width, (disc.y - 0.12 * stretch) / mix(0.72, 0.88, stretch));
@@ -140,7 +179,13 @@ function makePhotoPoints(panel, indices, localCenters, depthOrder, leftUV, right
   return cloud;
 }
 
+<<<<<<< Updated upstream
 function makeImpactSplashes(panel, indices, localCenters, depthOrder, normals, toCamera, pixelRatio) {
+=======
+// 물감이 맵에 닿았을 때 주변으로 튀는 작은 방울을 만든다.
+function makeImpactSplashes(panel, indices, localCenters, depthOrder, normals, toCamera, pixelRatio) {
+  // 착지 효과: 일부 점만 골라 작은 방울을 5개씩 만든다.
+>>>>>>> Stashed changes
   const stride = Math.max(13, Math.ceil(indices.length / 2400));
   const flecksPerImpact = 5;
   const count = Math.ceil(indices.length / stride) * flecksPerImpact;
@@ -183,6 +228,10 @@ function makeImpactSplashes(panel, indices, localCenters, depthOrder, normals, t
       varying vec3 color;
       varying float opacity;
       void main() {
+<<<<<<< Updated upstream
+=======
+        // 튀는 시점: 비행 진행률에서 1을 빼서 착지 후에만 방울을 그린다.
+>>>>>>> Stashed changes
         float impactAge = pointFlight(fromLeft ? paintBuild.x : paintBuild.y, timing.x) - 1.0;
         float seed = timing.y;
         float t = impactAge / mix(0.19, 0.34, seed);
@@ -191,6 +240,10 @@ function makeImpactSplashes(panel, indices, localCenters, depthOrder, normals, t
           return;
         }
         vec3 axis = abs(impactNormal.y) < 0.90 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+<<<<<<< Updated upstream
+=======
+        // 튀는 방향: 표면과 나란한 방향을 만들고 방울마다 다른 각도로 퍼뜨린다.
+>>>>>>> Stashed changes
         vec3 tangent = normalize(cross(axis, impactNormal));
         float angle = seed * 6.283185;
         vec3 radial = cos(angle) * tangent + sin(angle) * cross(impactNormal, tangent);
@@ -218,6 +271,10 @@ function makeImpactSplashes(panel, indices, localCenters, depthOrder, normals, t
   return splash;
 }
 
+<<<<<<< Updated upstream
+=======
+// 사진과 입자를 준비하고 좌우 연출의 재생 순서를 정한다.
+>>>>>>> Stashed changes
 export function createStereoTransition(photos, points, frame, mesh, pose, pixelRatio) {
   const group = new THREE.Group();
   group.applyMatrix4(pose);
@@ -232,6 +289,10 @@ export function createStereoTransition(photos, points, frame, mesh, pose, pixelR
     const row = (points.uv[2*i+1] + 0.5) / imageHeight;
     leftUV[2*i] = THREE.MathUtils.clamp(u / imageWidth, 0, 1);
     leftUV[2*i+1] = row;
+<<<<<<< Updated upstream
+=======
+    // 오른쪽 사진 좌표: 왼쪽의 가로 픽셀 위치에서 시차를 뺀다.
+>>>>>>> Stashed changes
     rightUV[2*i] = THREE.MathUtils.clamp((u - points.disparity[i]) / imageWidth, 0, 1);
     rightUV[2*i+1] = 1 - row;
     photoIndices[leftUV[2*i] < Math.fround(photoSplit) ? 0 : 1].push(i);
@@ -258,6 +319,10 @@ export function createStereoTransition(photos, points, frame, mesh, pose, pixelR
   }
   const depthRange = far - near || 1;
   for (let i = 0; i < points.count; i++) {
+<<<<<<< Updated upstream
+=======
+    // 깊이 순서: 카메라 기준으로 가장 가까운 점은 0, 가장 먼 점은 1이 된다.
+>>>>>>> Stashed changes
     depthOrder[i] = (-localCenters[3*i+2] - near) / depthRange;
   }
   mesh.geometry.setAttribute('depthOrder', new THREE.InstancedBufferAttribute(depthOrder, 1));
@@ -276,6 +341,10 @@ export function createStereoTransition(photos, points, frame, mesh, pose, pixelR
   let stage = 'ready';
   let elapsed = 0;
 
+<<<<<<< Updated upstream
+=======
+  // 현재 재생 단계에 맞춰 사진과 맵의 표시 상태를 바꾼다.
+>>>>>>> Stashed changes
   function update() {
     const progress = elapsed / (stageDuration[stage] ?? 1);
     const left = stage === 'ready' ? 0 : stage === 'left' ? progress : 1;
@@ -290,6 +359,7 @@ export function createStereoTransition(photos, points, frame, mesh, pose, pixelR
     group,
     overviewPosition,
     overviewTarget,
+<<<<<<< Updated upstream
     get stage() { return stage; },
     startLeft() {
       if (stage === 'ready') { stage = 'left'; elapsed = 0; }
@@ -297,16 +367,37 @@ export function createStereoTransition(photos, points, frame, mesh, pose, pixelR
     startRight() {
       if (stage === 'rightReady') { stage = 'right'; elapsed = 0; }
     },
+=======
+    // 현재 연출 단계를 알려 준다.
+    get stage() { return stage; },
+    // 준비 상태에서 왼쪽 사진 연출을 시작한다.
+    startLeft() {
+      if (stage === 'ready') { stage = 'left'; elapsed = 0; }
+    },
+    // 왼쪽 연출이 끝나면 오른쪽 사진 연출을 시작한다.
+    startRight() {
+      if (stage === 'rightReady') { stage = 'right'; elapsed = 0; }
+    },
+    // 연출을 사진 두 장이 보이는 처음 상태로 되돌린다.
+>>>>>>> Stashed changes
     restart() {
       stage = 'ready';
       elapsed = 0;
       update();
     },
+<<<<<<< Updated upstream
+=======
+    // 남은 연출을 건너뛰고 완성된 맵을 보여 준다.
+>>>>>>> Stashed changes
     finish() {
       stage = 'complete';
       elapsed = 0;
       update();
     },
+<<<<<<< Updated upstream
+=======
+    // 지난 시간을 더하고, 현재 단계가 끝나면 다음 단계로 넘어간다.
+>>>>>>> Stashed changes
     tick(delta) {
       if (!stageDuration[stage]) return;
       elapsed += delta;
